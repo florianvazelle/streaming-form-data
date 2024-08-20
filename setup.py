@@ -1,6 +1,19 @@
 from setuptools import Extension, find_packages, setup
 import pathlib
 
+from wheel.bdist_wheel import bdist_wheel
+from Cython.Build import cythonize
+
+class bdist_wheel_abi3(bdist_wheel):
+    def get_tag(self):
+        python, abi, platform = super().get_tag()
+
+        if python.startswith("cp"):
+            # on CPython, our wheels are abi3 and compatible back to 3.8
+            return "cp38", "abi3", platform
+
+        return python, abi, platform
+
 
 here = pathlib.Path(__file__).parent.resolve()
 
@@ -16,12 +29,14 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
-    ext_modules=[
+    ext_modules=cythonize([
         Extension(
             "streaming_form_data._parser",
-            ["streaming_form_data/_parser.c"],
+            sources=["streaming_form_data/_parser.pyx"],
+            define_macros=[("Py_LIMITED_API", "0x03080000")],
+            py_limited_api=True,
         )
-    ],
+    ]),
     url="https://github.com/siddhantgoel/streaming-form-data",
     author="Siddhant Goel",
     author_email="me@sgoel.dev",
@@ -46,4 +61,5 @@ setup(
     keywords="form-data, forms, http, multipart, web",
     python_requires=">=3.8",
     install_requires=["smart_open>=6.0"],
+    cmdclass={"bdist_wheel": bdist_wheel_abi3},
 )
